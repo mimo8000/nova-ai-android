@@ -9,7 +9,7 @@ const BASE = 'https://openrouter.ai/api/v1/chat/completions';
 // Built-in OpenRouter key (used when the user has not set their own in Settings).
 // WARNING: this ships inside the APK and is extractable by a determined user.
 // Replace it with your own key, or remove it and let users enter their own.
-const DEFAULT_OR_KEY = (import.meta.env?.VITE_OR_KEY || '') as string;
+const DEFAULT_OR_KEY = ((import.meta as any).env?.VITE_OR_KEY || '') as string;
 
 // Map our UI model ids to real OpenRouter model ids
 export function resolveOpenRouterModel(model: string): string | null {
@@ -82,6 +82,7 @@ export async function orChatGenerate(opts: {
     model: orModel,
     messages: buildMessages(opts.messages, opts.systemPrompt),
     temperature: opts.temperature ?? 0.7,
+    max_tokens: 2048,
     stream: false,
   };
   const res = await fetch(BASE, {
@@ -91,6 +92,9 @@ export async function orChatGenerate(opts: {
   });
   if (!res.ok) {
     const t = await res.text();
+    if (res.status === 402) {
+      throw new Error('اعتبار کلید OpenRouter تمام شده است. از دکمه کلید (تنظیمات) کلید جدید وارد کنید.');
+    }
     throw new Error(`OpenRouter (${res.status}): ${t.slice(0, 200)}`);
   }
   const data = await res.json();
@@ -116,6 +120,7 @@ export async function orChatStream(opts: {
     model: orModel,
     messages: buildMessages(opts.messages, opts.systemPrompt),
     temperature: opts.temperature ?? 0.7,
+    max_tokens: 2048,
     stream: true,
   };
   try {

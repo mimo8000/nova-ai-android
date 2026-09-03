@@ -54,6 +54,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const admin = isAdmin();
   const lic = getLicense();
+  // admin doesn't need a PIN to open settings
+  React.useEffect(() => { if (admin) setKeyUnlocked(true); }, [admin]);
   const quotaLeft = remainingQuota();
   const tierLabel = lic?.admin ? 'مدیر — نامحدود' : lic?.tier === 'pro' ? '⭐ PRO' : 'رایگان (فقط چت)';
   const quotaText = lic?.admin ? 'نامحدود (مدیر)' : `${quotaLeft} استفاده باقی‌مانده`;
@@ -181,7 +183,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {!keyUnlocked && (
+        {!keyUnlocked && !admin && (
           <form onSubmit={handleUnlockSettings} className="space-y-3 bg-slate-900/90 rounded-3xl p-4 border border-rose-500/30 shadow-xl">
             <div className="flex items-center gap-2 text-xs font-bold text-rose-300">
               <Lock className="w-4 h-4" />
@@ -197,7 +199,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {settingsPinErr && <p className="text-[10px] text-rose-400">{settingsPinErr}</p>}
           </form>
         )}
-        {keyUnlocked && (<>
+        {(keyUnlocked || admin) && (<>
         {/* License status */}
         <div className="bg-slate-900/90 rounded-3xl p-4 border border-slate-800 shadow-xl space-y-1">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
