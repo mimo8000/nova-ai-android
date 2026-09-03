@@ -147,3 +147,36 @@ export function consumeQuota(cost: number): boolean {
   saveLicense(lic);
   return true;
 }
+
+// ---------- admin PIN (password) gate ----------
+// The API-key area is locked behind this PIN so a normal user who was given a
+// subscription code cannot change keys or reach admin tools. The admin can set
+// / change the PIN from the admin panel. Fresh installs (users' phones) fall
+// back to DEFAULT_PIN until a custom one is set on that device.
+const PIN_KEY = '***';
+export const DEFAULT_ADMIN_PIN = '1234';
+
+async function hashPin(pin: string): Promise<string> {
+  const enc = new TextEncoder();
+  const buf = await crypto.subtle.digest('SHA-256', enc.encode('nova-pin:' + pin));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+export function hasCustomPin(): boolean {
+  return !!localStorage.getItem(PIN_KEY);
+}
+
+export async function setAdminPin(pin: string): Promise<void> {
+  const h = await hashPin(pin);
+  localStorage.setItem(PIN_KEY, h);
+}
+
+export async function verifyAdminPin(pin: string): Promise<boolean> {
+  const stored = localStorage.getItem(PIN_KEY);
+  if (!stored) return pin === DEFAULT_ADMIN_PIN;
+  return (await hashPin(pin)) === stored;
+}
+
+export function clearAdminPin(): void {
+  localStorage.removeItem(PIN_KEY);
+}

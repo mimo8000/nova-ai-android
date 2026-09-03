@@ -14,7 +14,8 @@ import {
   Copy,
 } from 'lucide-react';
 import { AppTheme } from '../types';
-import { isAdmin, generateUserCode, generateAdminCode, getLicense, remainingQuota } from '../utils/license';
+import { isAdmin, generateUserCode, generateAdminCode, getLicense, remainingQuota, hasCustomPin, setAdminPin, verifyAdminPin } from '../utils/license';
+import { copyText } from '../utils/saveFile';
 
 interface SettingsModalProps {
   theme: AppTheme;
@@ -40,6 +41,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [genCount, setGenCount] = useState(5);
   const [genUses, setGenUses] = useState(100);
   const [genResult, setGenResult] = useState<string[]>([]);
+
+  // key-section PIN gate (always locked until PIN entered)
+  const [pinSet, setPinSet] = useState(hasCustomPin());
+  const [keyUnlocked, setKeyUnlocked] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pinErr, setPinErr] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [newPin2, setNewPin2] = useState('');
 
   const admin = isAdmin();
   const lic = getLicense();
@@ -100,8 +109,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const copyAll = () => {
-    navigator.clipboard.writeText(genResult.join('\n'));
+    copyText(genResult.join('\n'));
     flash('کدها کپی شدند');
+  };
+
+  const handleUnlockKeys = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (await verifyAdminPin(pinInput)) {
+      setKeyUnlocked(true);
+      setPinErr('');
+      setPinInput('');
+    } else {
+      setPinErr('رمز اشتباه است');
+    }
+  };
+
+  const handleSetPin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPin.length < 4) { setErrorMsg('رمز باید حداقل ۴ رقم/حرف باشد'); return; }
+    if (newPin !== newPin2) { setErrorMsg('دو تکرار رمز یکی نیست'); return; }
+    await setAdminPin(newPin);
+    setPinSet(true);
+    setKeyUnlocked(true);
+    setNewPin(''); setNewPin2('');
+    flash('رمز محافظ کلیدها تنظیم شد ✓');
   };
 
   return (
@@ -191,12 +222,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         )}
 
-        {/* API Keys */}
+        {/* API Keys — locked behind admin PIN */}
         <div className="bg-slate-900/90 rounded-3xl p-4 border border-amber-500/30 shadow-xl space-y-3">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
             <KeyRound className="w-4 h-4 text-amber-400" />
             <span>کلیدهای API</span>
+            {!keyUnlocked && <Lock className="w-3.5 h-3.5 text-rose-400" />}
           </div>
+
+          {!keyUnlocked && (
+            <form onSubmit={handleUnlockKeys} className="space-y-2">
+              <p className="text-[11px] text-slate-400">این بخش با رمز ادمین قفل است. برای تغییر کلیدها رمز را وارد کنید.</p>
+              <div className="flex gap-2">
+                <input type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)}
+                  placeholder="رمز ادمین" dir="ltr" autoFocus
+                  className="flex-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-amber-500 text-xs text-slate-100 font-mono" />
+                <button type="submit" className="px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold cursor-pointer">
+                  باز کردن
+                </button>
+              </div>
+              {pinErr && <p className="text-[10px] text-rose-400">{pinErr}</p>}
+            </form>
+          )}
+
+          {keyUnlocked && (<>
 
           <div>
             <label className="block text-[11px] text-slate-400 mb-1">کلید Gemini (چت پیش‌فرض)</label>
@@ -227,7 +276,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {orSaved ? 'فعال ✓' : 'تنظیم نشده (کلید پیش‌فرض اپ استفاده می‌شود)'}
             </span>
           </div>
+          </>)}
         </div>
+
+        {/* Admin: set/change the key-section PIN (visible once unlocked) */}
+        {keyUnlocked && admin && (
+          <div className="bg-slate-900/90 rounded-3xl p-4 border border-rose-500/30 shadow-xl space-y-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+              <ShieldCheck className="w-4 h-4 text-rose-400" />
+              <span>{pinSet ? 'تغییر رمز محافظ کلیدها' : 'تنظیم رمز محافظ کلیدها'}</span>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              تا وقتی رمز نگذاشته‌ای، هر کسی که وارد اپ شده می‌تواند کلید API را عوض کند. رمز بگذار تا این بخش فقط با رمز باز شود.
+            </p>
+            <form onSubmit={handleSetPin} className="space-y-2">
+              <input type="password" value={newPin} onChange={(e) => setNewPin(e.target.value)}
+                placeholder="رمز جدید (حداقل ۴ کاراکتر)" dir="ltr"
+                className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-rose-500 text-xs text-slate-100 font-mono" />
+              <input type="password" value={newPin2} onChange={(e) => setNewPin2(e.target.value)}
+                placeholder="تکرار رمز جدید" dir="ltr"
+                className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-rose-500 text-xs text-slate-100 font-mono" />
+              <button type="submit" className="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold cursor-pointer">
+                {pinSet ? 'ثبت رمز جدید' : 'فعال کردن قفل رمز'}
+              </button>
+            </form>
+          </div>
+        )}
 
         {/* Themes */}
         <div className="bg-slate-900/90 rounded-3xl p-4 border border-slate-800 shadow-xl space-y-3">

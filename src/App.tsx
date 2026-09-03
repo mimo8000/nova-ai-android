@@ -19,7 +19,7 @@ import { ToolsView } from './components/ToolsView';
 import { MeditationView } from './components/MeditationView';
 import { SettingsModal } from './components/SettingsModal';
 import { ApiKeyQuickModal } from './components/ApiKeyQuickModal';
-import { getLicense, License } from './utils/license';
+import { getLicense, isAdmin, License } from './utils/license';
 import {
   ChatMessage,
   GeneratedImage,
@@ -435,8 +435,8 @@ export default function App() {
                 );
               })}
             </div>
-            {/* Floating quick API-key button — placed ABOVE the chat composer so it never covers send */}
-            {!showKeyModal && (
+            {/* Floating quick API-key button — admin only, above the chat composer */}
+            {!showKeyModal && isAdmin() && (
               <button
                 id="quick-key-fab"
                 onClick={() => setShowKeyModal(true)}
