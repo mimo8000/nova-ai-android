@@ -435,15 +435,17 @@ export default function App() {
                 );
               })}
             </div>
-            {/* Floating quick API-key button */}
-            <button
-              id="quick-key-fab"
-              onClick={() => setShowKeyModal(true)}
-              className="absolute bottom-16 left-3 z-40 w-11 h-11 rounded-full bg-gradient-to-tr from-amber-500 to-orange-600 text-white shadow-xl shadow-amber-500/30 flex items-center justify-center active:scale-95 transition-transform cursor-pointer"
-              title="تغییر سریع کلید API"
-            >
-              <Key className="w-5 h-5" />
-            </button>
+            {/* Floating quick API-key button — placed ABOVE the chat composer so it never covers send */}
+            {!showKeyModal && (
+              <button
+                id="quick-key-fab"
+                onClick={() => setShowKeyModal(true)}
+                className="absolute bottom-[150px] right-3 z-40 w-11 h-11 rounded-full bg-gradient-to-tr from-amber-500 to-orange-600 text-white shadow-xl shadow-amber-500/30 flex items-center justify-center active:scale-95 transition-transform cursor-pointer"
+                title="تغییر سریع کلید API"
+              >
+                <Key className="w-5 h-5" />
+              </button>
+            )}
 
             <ApiKeyQuickModal open={showKeyModal} onClose={() => setShowKeyModal(false)} />
           </motion.div>
