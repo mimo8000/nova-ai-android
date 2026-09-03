@@ -7,6 +7,7 @@
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
+    img.crossOrigin = 'anonymous';
     img.onload = () => resolve(img);
     img.onerror = () => reject(new Error('خطا در بارگذاری فریم'));
     img.src = src;
@@ -35,7 +36,9 @@ export async function exportScenesToWebm(
   const W = opts.width || 1280;
   const H = opts.height || 720;
   const perScene = opts.secondsPerScene || 3.5;
-  const images = await Promise.all(sceneImages.filter(Boolean).map(loadImage));
+  const images = await Promise.all(
+    sceneImages.filter(Boolean).map((s) => loadImage(s).catch(() => null))
+  ).then((arr) => arr.filter(Boolean) as HTMLImageElement[]);
   if (images.length === 0) throw new Error('فریمی برای رندر وجود ندارد');
 
   const canvas = document.createElement('canvas');
@@ -68,26 +71,22 @@ export async function exportScenesToWebm(
       const local = (t % perScene) / perScene; // 0..1 within scene
       const img = images[idx];
 
-      // Ken Burns: slow zoom 1.0 -> 1.12 + gentle pan
       const scale = 1 + 0.12 * local;
       const pan = Math.sin(local * Math.PI) * (W * 0.02);
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, W, H);
       drawCover(ctx, img, W, H, scale, pan, -pan * 0.4);
 
-      // Crossfade with next scene in the last 15%
       if (local > 0.85 && idx + 1 < images.length) {
         ctx.globalAlpha = (local - 0.85) / 0.15;
         drawCover(ctx, images[idx + 1], W, H, 1.0, 0, 0);
         ctx.globalAlpha = 1;
       }
 
-      // Cinematic letterbox
       ctx.fillStyle = 'rgba(0,0,0,0.85)';
       ctx.fillRect(0, 0, W, H * 0.06);
       ctx.fillRect(0, H * 0.94, W, H * 0.06);
 
-      // Caption bar
       const cap = captions[idx] || '';
       if (cap) {
         ctx.fillStyle = 'rgba(2,6,23,0.72)';
@@ -100,7 +99,6 @@ export async function exportScenesToWebm(
         ctx.fillText(short, W / 2, H - H * 0.06 - bh / 2 + 8);
       }
 
-      // Scene counter
       ctx.fillStyle = 'rgba(255,255,255,0.85)';
       ctx.font = `bold ${Math.round(W * 0.018)}px monospace`;
       ctx.textAlign = 'right';

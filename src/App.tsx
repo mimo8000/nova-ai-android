@@ -19,7 +19,7 @@ import { ToolsView } from './components/ToolsView';
 import { MeditationView } from './components/MeditationView';
 import { SettingsModal } from './components/SettingsModal';
 import { ApiKeyQuickModal } from './components/ApiKeyQuickModal';
-import { getLicense, isAdmin, License } from './utils/license';
+import { getLicense, isAdmin, isPro, License } from './utils/license';
 import {
   ChatMessage,
   GeneratedImage,
@@ -355,15 +355,21 @@ export default function App() {
                 />
               )}
 
-              {activeTab === 'image' && (
+              {!isPro() && (
+                <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-30 px-4 py-2 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-200 text-[11px] backdrop-blur-md">
+                  اشتراک رایگان: فقط چت. برای عکس/ویدیو/ابزارها کد PRO بگیرید @SasaX60
+                </div>
+              )}
+
+              {activeTab === 'image' && isPro() && (
                 <ImageGenView images={images} onAddImage={handleAddImage} />
               )}
 
-              {activeTab === 'video' && (
+              {activeTab === 'video' && isPro() && (
                 <VideoGenView videos={videos} onAddVideo={handleAddVideo} />
               )}
 
-              {activeTab === 'tools' && (
+              {activeTab === 'tools' && isPro() && (
                 <ToolsView
                   onUsePromptInChat={(p) => {
                     setActiveTab('chat');
@@ -378,9 +384,9 @@ export default function App() {
                 />
               )}
 
-              {activeTab === 'meditation' && <MeditationView />}
+              {activeTab === 'meditation' && isPro() && <MeditationView />}
 
-              {activeTab === 'settings' && (
+              {activeTab === 'settings' && isAdmin() && (
                 <SettingsModal
                   onLockNow={handleLockNow}
                   theme={theme}
@@ -397,11 +403,13 @@ export default function App() {
             >
               {[
                 { id: 'chat', label: 'چت AI', icon: MessageSquare, badge: '' },
-                { id: 'image', label: 'عکس 4K', icon: ImageIcon, badge: '' },
-                { id: 'video', label: 'ویدیو AI', icon: Film, badge: '' },
-                { id: 'meditation', label: 'مدیتیشن', icon: Waves, badge: '' },
-                { id: 'tools', label: 'ابزارها', icon: Sparkles, badge: '' },
-                { id: 'settings', label: 'تنظیمات', icon: Key, badge: '' },
+                ...(isPro() ? [
+                  { id: 'image', label: 'عکس 4K', icon: ImageIcon, badge: '' },
+                  { id: 'video', label: 'ویدیو AI', icon: Film, badge: '' },
+                  { id: 'meditation', label: 'مدیتیشن', icon: Waves, badge: '' },
+                  { id: 'tools', label: 'ابزارها', icon: Sparkles, badge: '' },
+                ] : []),
+                ...(isAdmin() ? [{ id: 'settings', label: 'تنظیمات', icon: Key, badge: '' }] : []),
               ].map((tab) => {
                 const IconComponent = tab.icon;
                 const isActive = activeTab === tab.id;
@@ -409,7 +417,17 @@ export default function App() {
                   <button
                     key={tab.id}
                     id={`nav-tab-${tab.id}`}
-                    onClick={() => setActiveTab(tab.id as TabType)}
+                    onClick={() => {
+                      if (tab.id === 'settings' && !isAdmin()) {
+                        alert('بخش تنظیمات فقط برای مدیر (ادمین) باز است.');
+                        return;
+                      }
+                      if (!isPro() && tab.id !== 'chat') {
+                        alert('این بخش فقط با اشتراک PRO فعال است. برای ارتقا به @SasaX60 پیام دهید.');
+                        return;
+                      }
+                      setActiveTab(tab.id as TabType);
+                    }}
                     className={`relative flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all duration-200 cursor-pointer ${
                       isActive
                         ? activeTextClass

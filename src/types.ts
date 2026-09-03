@@ -17,6 +17,8 @@ export interface AIModelOption {
   desc: string;
   speed: string;
   icon: string;
+  pro?: boolean;
+  locked?: boolean;
 }
 
 export interface ChatMessage {

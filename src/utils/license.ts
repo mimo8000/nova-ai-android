@@ -19,6 +19,8 @@ export interface License {
   id: string;
   code: string;
   admin: boolean;
+  pro: boolean;
+  tier: 'free' | 'pro' | 'admin';
   quota: number; // total allowed uses (0 = unlimited for admin)
   used: number;
 }
@@ -72,12 +74,14 @@ function randomPayloadChars(n: number): string {
 export interface VerifyResult {
   ok: boolean;
   admin: boolean;
+  pro: boolean;
+  tier: 'free' | 'pro' | 'admin';
   quota: number;
   id: string;
 }
 
 export async function verifyCode(raw: string): Promise<VerifyResult> {
-  const fail: VerifyResult = { ok: false, admin: false, quota: 0, id: '' };
+  const fail: VerifyResult = { ok: false, admin: false, pro: false, tier: 'free', quota: 0, id: '' };
   const norm = raw.trim().toUpperCase().replace(/\s+/g, '');
   const m = norm.match(/^NOVA-([A-Z0-9]{5})-([A-Z0-9]{5})$/);
   if (!m) return fail;
@@ -85,11 +89,13 @@ export async function verifyCode(raw: string): Promise<VerifyResult> {
   const expect = await signPayload(payload);
   if (expect !== checksum) return fail;
   if (payload.startsWith('ADMN')) {
-    return { ok: true, admin: true, quota: 0, id: payload };
+    return { ok: true, admin: true, pro: true, tier: 'admin', quota: 0, id: payload };
   }
   const q = Number(payload[4]);
   const quota = q === 0 ? 100 : q * 10;
-  return { ok: true, admin: false, quota, id: payload };
+  // payload[1] encodes tier: 'P' => pro, anything else => free (chat only)
+  const tier = payload[1] === 'P' ? 'pro' : 'free';
+  return { ok: true, admin: false, pro: tier === 'pro', tier, quota, id: payload };
 }
 
 // ---------- generation (used by the admin panel inside the app) ----------
@@ -106,12 +112,23 @@ export async function generateAdminCode(): Promise<string> {
   return `NOVA-${payload}-${checksum}`;
 }
 
+/** PRO code: payload starts with PRO -> full access (image/video/tools) */
+export async function generateProCode(quotaUses: number): Promise<string> {
+  const digit = quotaUses >= 100 ? 0 : Math.max(1, Math.min(9, Math.round(quotaUses / 10)));
+  const payload = 'PRO' + randomPayloadChars(1) + String(digit);
+  const checksum = await signPayload(payload);
+  return `NOVA-${payload}-${checksum}`;
+}
+
 // ---------- stored license ----------
 export function getLicense(): License | null {
   try {
     const s = localStorage.getItem(LS_KEY);
     if (!s) return null;
-    return JSON.parse(s) as License;
+    const lic = JSON.parse(s) as License;
+    if (!lic.tier) lic.tier = lic.admin ? 'admin' : 'free';
+    if (lic.pro === undefined) lic.pro = lic.tier !== 'free';
+    return lic;
   } catch {
     return null;
   }
@@ -128,6 +145,20 @@ export function clearLicense() {
 export function isAdmin(): boolean {
   const lic = getLicense();
   return !!lic && lic.admin;
+}
+
+export function isPro(): boolean {
+  const lic = getLicense();
+  return !!lic && (lic.admin || lic.tier === 'pro');
+}
+
+/** Whether a given tab is allowed for the current license. */
+export function canAccessTab(tab: string): boolean {
+  const lic = getLicense();
+  if (!lic) return false;
+  if (lic.admin || lic.tier === 'pro') return true;
+  // free tier: chat only
+  return tab === 'chat';
 }
 
 export function remainingQuota(): number {

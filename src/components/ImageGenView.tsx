@@ -13,11 +13,11 @@ import {
   Eye,
   Sliders,
   CheckCircle,
+  AlertCircle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GeneratedImage } from '../types';
-import { generateProceduralArt } from '../utils/mediaGenerator';
-import { generatePollinationsImage } from '../utils/pollinations';
+import { pollinationsImageUrl, preloadImage } from '../utils/pollinations';
 import { saveToDevice, copyText } from '../utils/saveFile';
 import { consumeQuota, isAdmin } from '../utils/license';
 
@@ -50,6 +50,7 @@ export const ImageGenView: React.FC<ImageGenViewProps> = ({ images, onAddImage }
   const [previewImage, setPreviewImage] = useState<GeneratedImage | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'create' | 'gallery'>('create');
+  const [genError, setGenError] = useState('');
 
   // Enhance user prompt using Gemini
   const handleEnhancePrompt = async () => {
@@ -82,9 +83,11 @@ export const ImageGenView: React.FC<ImageGenViewProps> = ({ images, onAddImage }
       return;
     }
     setIsGenerating(true);
+    setGenError('');
     try {
-      // REAL image generation via Pollinations (no key)
-      const finalImageUrl = await generatePollinationsImage(prompt, aspectRatio, selectedStyle);
+      // REAL image generation via Pollinations (no key) — direct URL, loaded by <img>
+      const url = pollinationsImageUrl(prompt, aspectRatio, selectedStyle);
+      await preloadImage(url);
 
       const newImage: GeneratedImage = {
         id: 'img_' + Date.now(),
@@ -92,7 +95,7 @@ export const ImageGenView: React.FC<ImageGenViewProps> = ({ images, onAddImage }
         enhancedPrompt: prompt,
         style: selectedStyle,
         aspectRatio,
-        imageUrl: finalImageUrl,
+        imageUrl: url,
         createdAt: Date.now(),
       };
 
@@ -100,18 +103,7 @@ export const ImageGenView: React.FC<ImageGenViewProps> = ({ images, onAddImage }
       setPreviewImage(newImage);
     } catch (err) {
       console.error('Generation error:', err);
-      // Fallback to procedural art only if network fails
-      const fallbackUrl = await generateProceduralArt(prompt, selectedStyle, aspectRatio, 1024);
-      const fallbackImage: GeneratedImage = {
-        id: 'img_' + Date.now(),
-        prompt,
-        style: selectedStyle,
-        aspectRatio,
-        imageUrl: fallbackUrl,
-        createdAt: Date.now(),
-      };
-      onAddImage(fallbackImage);
-      setPreviewImage(fallbackImage);
+      setGenError('سرویس تصویرسازی موقتاً در دسترس نیست یا اینترنت ضعیف است. دوباره تلاش کنید.');
     } finally {
       setIsGenerating(false);
     }
@@ -309,6 +301,13 @@ export const ImageGenView: React.FC<ImageGenViewProps> = ({ images, onAddImage }
                 </>
               )}
             </button>
+
+            {genError && (
+              <div className="flex items-center gap-1.5 text-[11px] text-rose-400 bg-rose-500/10 p-2 rounded-xl border border-rose-500/20">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>{genError}</span>
+              </div>
+            )}
 
             {/* Latest Result Banner */}
             {previewImage && (

@@ -7,6 +7,10 @@
 // Gemini REST endpoint (generativeLanguage API, stable & CORS-enabled)
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 
+// No Gemini key is shipped in the APK. When the user has not set one, the
+// apiShim automatically routes Gemini models through OpenRouter instead.
+const DEFAULT_GEMINI_KEY = '';
+
 // Map the UI model ids to official Gemini models
 export function resolveModel(model: string): string {
   switch (model) {
@@ -97,8 +101,22 @@ function buildSystemInstruction(model: string, systemPrompt?: string): string {
   return systemPrompt ? `${base}\n\nتمرکز تخصصی این گفتگو: ${systemPrompt}` : base;
 }
 
+function sanitizeKey(k: string): string {
+  return k
+    .replace(/[\u200B-\u200D\uFEFF\u061C\u2066-\u2069]/g, '')
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/\s+/g, '')
+    .trim();
+}
 function getApiKey(): string {
-  return localStorage.getItem('nova_ai_gemini_key') || '';
+  // alias used across file
+  return getGeminiKeyImpl();
+}
+
+function getGeminiKeyImpl(): string {
+  const stored = localStorage.getItem('nova_ai_gemini_key');
+  if (stored) return sanitizeKey(stored);
+  return sanitizeKey(DEFAULT_GEMINI_KEY);
 }
 
 export interface ChatResult {

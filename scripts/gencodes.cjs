@@ -54,16 +54,23 @@ function userCode(uses) {
   return `NOVA-${payload}-${sign(payload)}`;
 }
 
+function proCode(uses) {
+  const digit = uses >= 100 ? 0 : Math.max(1, Math.min(9, Math.round(uses / 10)));
+  const payload = 'PRO' + randomChars(1) + String(digit);
+  return `NOVA-${payload}-${sign(payload)}`;
+}
+
 function adminCode() {
   const payload = 'ADMN' + randomChars(1);
   return `NOVA-${payload}-${sign(payload)}`;
 }
 
 const args = process.argv.slice(2);
-let uses = 100, count = 5, admin = false, out = null;
+let uses = 100, count = 5, admin = false, pro = false, out = null;
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
   if (a === '--admin') admin = true;
+  else if (a === '--pro') pro = true;
   else if (a === '-u' || a === '--uses') uses = parseInt(args[++i], 10);
   else if (a === '-n' || a === '--count') count = parseInt(args[++i], 10);
   else if (a === '--out') out = args[++i];
@@ -71,9 +78,9 @@ for (let i = 0; i < args.length; i++) {
 
 const codes = [];
 if (admin) codes.push(adminCode());
-for (let i = 0; i < (admin ? 0 : count); i++) codes.push(userCode(uses));
+for (let i = 0; i < (admin ? 0 : count); i++) codes.push(pro ? proCode(uses) : userCode(uses));
 
 const text = codes.join('\n') + '\n';
 if (out) require('fs').writeFileSync(out, text);
 process.stdout.write(text);
-if (!admin) console.error(`# ${count} user code(s), ${uses} uses each. Keep them private.`);
+if (!admin) console.error(`# ${count} ${pro ? 'PRO' : 'user'} code(s), ${uses} uses each. Keep them private.`);

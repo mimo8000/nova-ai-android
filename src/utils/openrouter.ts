@@ -39,8 +39,19 @@ export function resolveOpenRouterModel(model: string): string | null {
   }
 }
 
+function sanitizeKey(k: string): string {
+  // strip zero-width / BOM / RTL chars, convert Persian digits, trim
+  return k
+    .replace(/[\u200B-\u200D\uFEFF\u061C\u2066-\u2069]/g, '')
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/\s+/g, '')
+    .trim();
+}
+
 function getKey(): string {
-  return localStorage.getItem('nova_ai_or_key') || DEFAULT_OR_KEY;
+  const stored = localStorage.getItem('nova_ai_or_key');
+  if (stored) return sanitizeKey(stored);
+  return sanitizeKey(DEFAULT_OR_KEY);
 }
 
 function buildMessages(messages: any[], systemPrompt?: string): any[] {

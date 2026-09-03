@@ -2,6 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { X, KeyRound, Check, AlertCircle, Eye, EyeOff, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+function sanitizeKey(k: string): string {
+  return k
+    .replace(/[\u200B-\u200D\uFEFF\u061C\u2066-\u2069]/g, '')
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/\s+/g, '')
+    .trim();
+}
+
 /**
  * Quick API-key switcher. Opens from the floating button so the user can
  * paste a fresh key the moment the old one runs out — no need to navigate
@@ -32,9 +40,9 @@ export const ApiKeyQuickModal: React.FC<Props> = ({ open, onClose }) => {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (gemini.trim()) localStorage.setItem(GEMINI_KEY, gemini.trim());
+    if (gemini.trim()) localStorage.setItem(GEMINI_KEY, sanitizeKey(gemini));
     else localStorage.removeItem(GEMINI_KEY);
-    if (or.trim()) localStorage.setItem(OR_KEY, or.trim());
+    if (or.trim()) localStorage.setItem(OR_KEY, sanitizeKey(or));
     else localStorage.removeItem(OR_KEY);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);

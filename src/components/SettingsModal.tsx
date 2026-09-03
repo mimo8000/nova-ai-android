@@ -14,7 +14,7 @@ import {
   Copy,
 } from 'lucide-react';
 import { AppTheme } from '../types';
-import { isAdmin, generateUserCode, generateAdminCode, getLicense, remainingQuota, hasCustomPin, setAdminPin, verifyAdminPin } from '../utils/license';
+import { isAdmin, generateUserCode, generateProCode, generateAdminCode, getLicense, remainingQuota, hasCustomPin, setAdminPin, verifyAdminPin } from '../utils/license';
 import { copyText } from '../utils/saveFile';
 
 interface SettingsModalProps {
@@ -42,9 +42,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [genUses, setGenUses] = useState(100);
   const [genResult, setGenResult] = useState<string[]>([]);
 
-  // key-section PIN gate (always locked until PIN entered)
+  // whole-settings PIN gate (locked even for admin until PIN entered)
   const [pinSet, setPinSet] = useState(hasCustomPin());
   const [keyUnlocked, setKeyUnlocked] = useState(false);
+  const [settingsPin, setSettingsPin] = useState('');
+  const [settingsPinErr, setSettingsPinErr] = useState('');
   const [pinInput, setPinInput] = useState('');
   const [pinErr, setPinErr] = useState('');
   const [newPin, setNewPin] = useState('');
@@ -53,6 +55,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const admin = isAdmin();
   const lic = getLicense();
   const quotaLeft = remainingQuota();
+  const tierLabel = lic?.admin ? 'مدیر — نامحدود' : lic?.tier === 'pro' ? '⭐ PRO' : 'رایگان (فقط چت)';
   const quotaText = lic?.admin ? 'نامحدود (مدیر)' : `${quotaLeft} استفاده باقی‌مانده`;
 
   useEffect(() => {
@@ -75,7 +78,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setGeminiSaved(false);
       return;
     }
-    localStorage.setItem('nova_ai_gemini_key', k);
+    const gk = k.replace(/[^\x00-\x7F]/g, (c) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c) >= 0 ? '۰۱۲۳۴۵۶۷۸۹'.indexOf(c) : '')).replace(/[^A-Za-z0-9_\-]/g, '');
+    localStorage.setItem('nova_ai_gemini_key', gk);
     setGeminiSaved(true);
     flash('کلید Gemini ذخیره شد ✓');
   };
@@ -88,7 +92,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setOrSaved(false);
       return;
     }
-    localStorage.setItem('nova_ai_or_key', k);
+    const ok = k.replace(/[^\x00-\x7F]/g, (c) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c) >= 0 ? '۰۱۲۳۴۵۶۷۸۹'.indexOf(c) : '')).replace(/[^A-Za-z0-9_\-]/g, '');
+    localStorage.setItem('nova_ai_or_key', ok);
     setOrSaved(true);
     flash('کلید OpenRouter ذخیره شد ✓');
   };
@@ -108,6 +113,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     flash('کد مدیر تولید شد');
   };
 
+  const handleGeneratePro = async () => {
+    const codes: string[] = [];
+    for (let i = 0; i < genCount; i++) codes.push(await generateProCode(genUses));
+    setGenResult(codes);
+    flash(`${genCount} کد PRO تولید شد`);
+  };
+
   const copyAll = () => {
     copyText(genResult.join('\n'));
     flash('کدها کپی شدند');
@@ -121,6 +133,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setPinInput('');
     } else {
       setPinErr('رمز اشتباه است');
+    }
+  };
+
+  const handleUnlockSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (await verifyAdminPin(settingsPin)) {
+      setKeyUnlocked(true);
+      setSettingsPinErr('');
+      setSettingsPin('');
+    } else {
+      setSettingsPinErr('رمز اشتباه است');
     }
   };
 
@@ -158,6 +181,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {!keyUnlocked && (
+          <form onSubmit={handleUnlockSettings} className="space-y-3 bg-slate-900/90 rounded-3xl p-4 border border-rose-500/30 shadow-xl">
+            <div className="flex items-center gap-2 text-xs font-bold text-rose-300">
+              <Lock className="w-4 h-4" />
+              <span>تنظیمات قفل است — رمز ادمین را وارد کنید</span>
+            </div>
+            <p className="text-[11px] text-slate-400">این بخش کاملاً قفل است. حتی ادمین باید رمز را وارد کند تا بتواند کلیدها، کدها و تم‌ها را تغییر دهد.</p>
+            <div className="flex gap-2">
+              <input type="password" value={settingsPin} onChange={(e) => setSettingsPin(e.target.value)}
+                placeholder="رمز ادمین" dir="ltr" autoFocus
+                className="flex-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 focus:border-rose-500 text-xs text-slate-100 font-mono" />
+              <button type="submit" className="px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold cursor-pointer">باز کردن</button>
+            </div>
+            {settingsPinErr && <p className="text-[10px] text-rose-400">{settingsPinErr}</p>}
+          </form>
+        )}
+        {keyUnlocked && (<>
         {/* License status */}
         <div className="bg-slate-900/90 rounded-3xl p-4 border border-slate-800 shadow-xl space-y-1">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
@@ -167,6 +207,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <p className="text-[11px] text-slate-400">
             کد فعال: <span className="font-mono text-slate-200">{lic?.code || '—'}</span>
           </p>
+          <p className="text-[11px] text-slate-400">سطح دسترسی: <span className="text-amber-300 font-bold">{tierLabel}</span></p>
           <p className="text-[11px] text-slate-400">اعتبار: <span className="text-emerald-400 font-bold">{quotaText}</span></p>
         </div>
 
@@ -193,12 +234,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
             <div className="flex gap-2">
               <button onClick={handleGenerate}
-                className="flex-1 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs cursor-pointer">
-                تولید کدهای کاربر
+                className="flex-1 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs cursor-pointer">
+                کد رایگان (فقط چت)
+              </button>
+              <button onClick={handleGeneratePro}
+                className="flex-1 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-extrabold text-xs cursor-pointer shadow-lg shadow-amber-500/20">
+                ⭐ کد PRO
               </button>
               <button onClick={handleGenerateAdmin}
-                className="px-3 py-2 rounded-xl bg-amber-800 hover:bg-amber-700 text-white font-bold text-xs cursor-pointer">
-                کد مدیر
+                className="px-3 py-2 rounded-xl bg-amber-900 hover:bg-amber-800 text-amber-200 font-bold text-xs cursor-pointer">
+                مدیر
               </button>
             </div>
             {genResult.length > 0 && (
@@ -358,6 +403,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <Check className="w-3.5 h-3.5 shrink-0" /><span>{successMsg}</span>
           </div>
         )}
+        </>)}
       </div>
     </div>
   );

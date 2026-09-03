@@ -26,12 +26,14 @@ import {
   Download,
   FileCode,
   Wand2,
+  Lock,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
 import { ChatMessage, AIModelOption, AIModelType } from '../types';
 import { speakText, stopSpeaking } from '../utils/mediaGenerator';
 import { copyText } from '../utils/saveFile';
+import { isPro } from '../utils/license';
 
 export const AI_MODELS: AIModelOption[] = [
   {
@@ -77,42 +79,47 @@ export const AI_MODELS: AIModelOption[] = [
   {
     id: 'qwen3.8-flash',
     name: 'Qwen 3.8 Flash',
-    badge: 'چندزبانه قدرتمند 🐉',
-    desc: 'مدل شیائومی/علی‌بابا با قدرت زبانی و کدنویسی عالی و پشتیبانی فوق‌العاده از فارسی',
+    badge: 'PRO 🐉',
+    desc: 'مدل علی‌بابا با قدرت زبانی و کدنویسی عالی و پشتیبانی فوق‌العاده از فارسی (نیاز به اشتراک PRO)',
     speed: 'سرعت: بسیار سریع',
     icon: '🐉',
+    pro: true,
   },
   {
     id: 'glm-5.3-flash',
     name: 'GLM 5.3 Flash',
-    badge: 'استدلال زنجیره‌ای 🎯',
-    desc: 'مدل Zhipu با تفکر گام‌به‌گام، مناسب ریاضی، منطق و تحلیل دقیق',
+    badge: 'PRO 🎯',
+    desc: 'مدل Zhipu با تفکر گام‌به‌گام، مناسب ریاضی، منطق و تحلیل دقیق (نیاز به اشتراک PRO)',
     speed: 'سرعت: سریع (با reasoning)',
     icon: '🎯',
+    pro: true,
   },
   {
     id: 'deepseek-v4-flash',
     name: 'DeepSeek V4 Flash',
-    badge: 'متخصص کدنویسی 💎',
-    desc: 'قوی‌ترین مدل رایگان در کدنویسی، رفع باگ و استدلال فنی عمیق',
+    badge: 'PRO 💎',
+    desc: 'قوی‌ترین مدل در کدنویسی، رفع باگ و استدلال فنی عمیق (نیاز به اشتراک PRO)',
     speed: 'سرعت: سریع',
     icon: '💎',
+    pro: true,
   },
   {
     id: 'hy3',
     name: 'Hunyuan 3 (Tencent)',
-    badge: 'همه‌کاره چینی 🀄',
-    desc: 'مدل تنسنت برای مکالمه طبیعی، ترجمه و خلاقیت متنی',
+    badge: 'PRO 🀄',
+    desc: 'مدل تنسنت برای مکالمه طبیعی، ترجمه و خلاقیت متنی (نیاز به اشتراک PRO)',
     speed: 'سرعت: سریع',
     icon: '🀄',
+    pro: true,
   },
   {
     id: 'mimo',
     name: 'Xiaomi MiMo 2.5',
-    badge: 'جدید و سریع 🐱',
-    desc: 'مدل شیائومی با تعادل عالی سرعت و کیفیت برای کارهای روزمره',
+    badge: 'PRO 🐱',
+    desc: 'مدل شیائومی با تعادل عالی سرعت و کیفیت برای کارهای روزمره (نیاز به اشتراک PRO)',
     speed: 'سرعت: بسیار سریع',
     icon: '🐱',
+    pro: true,
   },
 ];
 
@@ -212,7 +219,17 @@ export const ChatView: React.FC<ChatViewProps> = ({
 }) => {
   const [input, setInput] = useState('');
   const [selectedPersona, setSelectedPersona] = useState(PERSONAS[0]);
-  const [selectedModel, setSelectedModel] = useState<AIModelOption>(AI_MODELS[0]);
+  const [selectedModel, setSelectedModel] = useState<AIModelOption>(() => {
+    try {
+      const saved = localStorage.getItem('nova_ai_selected_model');
+      const found = AI_MODELS.find((m) => m.id === saved);
+      if (found) return found;
+    } catch {}
+    return AI_MODELS[0];
+  });
+  useEffect(() => {
+    try { localStorage.setItem('nova_ai_selected_model', selectedModel.id); } catch {}
+  }, [selectedModel]);
   const [showModelModal, setShowModelModal] = useState(false);
   const [useWebSearch, setUseWebSearch] = useState(false);
   const [attachedImages, setAttachedImages] = useState<{ data: string; mimeType: string; preview: string }[]>([]);
@@ -414,10 +431,15 @@ export const ChatView: React.FC<ChatViewProps> = ({
               <div className="space-y-2.5">
                 {AI_MODELS.map((m) => {
                   const isSelected = selectedModel.id === m.id;
+                  const locked = !!m.pro && !isPro();
                   return (
                     <button
                       key={m.id}
                       onClick={() => {
+                        if (locked) {
+                          alert('این مدل فقط با اشتراک PRO باز می‌شود. برای خرید کد PRO به @SasaX60 پیام دهید.');
+                          return;
+                        }
                         setSelectedModel(m);
                         setShowModelModal(false);
                       }}
@@ -433,10 +455,13 @@ export const ChatView: React.FC<ChatViewProps> = ({
                           <div className="flex items-center gap-2">
                             <h4 className="text-xs font-bold text-slate-100">{m.name}</h4>
                             <span className={`text-[9px] px-2 py-0.5 rounded-full font-medium ${
-                              isSelected ? 'bg-blue-500 text-white' : 'bg-slate-800 text-blue-300'
+                              m.pro
+                                ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white font-extrabold'
+                                : isSelected ? 'bg-blue-500 text-white' : 'bg-slate-800 text-blue-300'
                             }`}>
-                              {m.badge}
+                              {m.pro ? '⭐ PRO' : m.badge}
                             </span>
+                            {locked && <Lock className="w-3 h-3 text-rose-400" />}
                           </div>
                           <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">{m.desc}</p>
                           <div className="flex items-center gap-1 mt-1.5 text-[10px] text-emerald-400 font-medium">

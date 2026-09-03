@@ -63,6 +63,8 @@ export const LockScreen: React.FC<LockScreenProps> = ({ onUnlock }) => {
       id: result.id,
       code: trimmed.toUpperCase(),
       admin: result.admin,
+      pro: result.pro,
+      tier: result.tier,
       quota: result.quota,
       used: 0,
     };
