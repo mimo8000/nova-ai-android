@@ -1,0 +1,6 @@
+{
+  "name": "Nova AI - برنامه هوش مصنوعی اندروید",
+  "description": "اپلیکیشن پیشرفته اندروید با قفل رمز ورود، چت هوش مصنوعی نامحدود، تولید عکس و ویدیو با کیفیت بالا.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
