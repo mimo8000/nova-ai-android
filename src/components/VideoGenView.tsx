@@ -19,6 +19,9 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { GeneratedVideo, VideoScene } from '../types';
+import { generatePollinationsImage } from '../utils/pollinations';
+import { exportScenesToWebm } from '../utils/videoExport';
+import { saveToDevice } from '../utils/saveFile';
 
 interface VideoGenViewProps {
   videos: GeneratedVideo[];
@@ -38,136 +41,28 @@ export const VideoGenView: React.FC<VideoGenViewProps> = ({ videos, onAddVideo }
   const [aspectRatio, setAspectRatio] = useState('16:9');
   const [resolution, setResolution] = useState('1080p');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isRendering, setIsRendering] = useState(false);
+  const [renderPct, setRenderPct] = useState(0);
   const [currentVideo, setCurrentVideo] = useState<GeneratedVideo | null>(videos[0] || null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
 
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
-  const timeRef = useRef(0);
-
-  // Animate the interactive canvas video player
+  // Real slideshow of generated scene images (replaces fake canvas animation)
   useEffect(() => {
-    if (!currentVideo || !canvasRef.current) return;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let startTime = performance.now();
-
-    const render = (now: number) => {
-      const elapsed = (now - startTime) / 1000;
-      timeRef.current = elapsed;
-
-      const w = canvas.width;
-      const h = canvas.height;
-      const scenes = currentVideo.scenes;
-      const totalScenes = scenes.length || 1;
-      const sceneDuration = 3.5;
-      const activeIdx = Math.floor((elapsed % (totalScenes * sceneDuration)) / sceneDuration);
-      setCurrentSceneIndex(activeIdx);
-
-      const scene = scenes[activeIdx] || {
-        visual: currentVideo.prompt,
-        camera: 'Cinematic Flow',
-      };
-
-      // Background Gradient
-      const grad = ctx.createLinearGradient(0, 0, w, h);
-      const shift = Math.sin(elapsed * 0.5);
-      grad.addColorStop(0, '#060B19');
-      grad.addColorStop(0.5, '#1E1B4B');
-      grad.addColorStop(1, '#020617');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, w, h);
-
-      // Camera motion simulation (Zoom / Pan)
-      ctx.save();
-      const zoom = 1 + (Math.sin(elapsed * 1.2) * 0.08);
-      ctx.translate(w / 2, h / 2);
-      ctx.scale(zoom, zoom);
-      ctx.translate(-w / 2, -h / 2);
-
-      // Dynamic Particle Stars & Energy Rays
-      for (let i = 0; i < 60; i++) {
-        const px = ((i * 73 + elapsed * 45) % w);
-        const py = ((i * 137 + Math.sin(elapsed + i) * 30) % h);
-        const size = (i % 3) + 1.5;
-        ctx.fillStyle = i % 2 === 0 ? '#60A5FA88' : '#EC489988';
-        ctx.beginPath();
-        ctx.arc(px, py, size, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // Glowing Center Nexus
-      const cx = w / 2;
-      const cy = h / 2;
-      const radGlow = ctx.createRadialGradient(cx, cy, 20, cx, cy, w * 0.4);
-      radGlow.addColorStop(0, 'rgba(139, 92, 246, 0.4)');
-      radGlow.addColorStop(0.5, 'rgba(59, 130, 246, 0.15)');
-      radGlow.addColorStop(1, 'transparent');
-      ctx.fillStyle = radGlow;
-      ctx.beginPath();
-      ctx.arc(cx, cy, w * 0.4, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Atmospheric Motion Ring
-      ctx.beginPath();
-      ctx.arc(cx, cy, 140 + Math.sin(elapsed * 2) * 20, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(236, 72, 153, 0.4)';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      ctx.restore();
-
-      // Film Grain / Vignette
-      const vignette = ctx.createRadialGradient(w / 2, h / 2, w * 0.2, w / 2, h / 2, w * 0.65);
-      vignette.addColorStop(0, 'transparent');
-      vignette.addColorStop(1, 'rgba(0,0,0,0.7)');
-      ctx.fillStyle = vignette;
-      ctx.fillRect(0, 0, w, h);
-
-      // HUD Overlay
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-      ctx.font = 'bold 16px sans-serif';
-      ctx.textAlign = 'right';
-      ctx.fillText(`REC • ${currentVideo.resolution} 60FPS`, w - 20, 30);
-
-      // Camera badge
-      ctx.fillStyle = '#60A5FA';
-      ctx.font = '12px sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText(`CAMERA: ${scene.camera || 'SMOOTH TRACKING'}`, 20, 30);
-
-      // Subtitle Bar
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-      ctx.fillRect(20, h - 60, w - 40, 44);
-      ctx.strokeStyle = 'rgba(59, 130, 246, 0.4)';
-      ctx.strokeRect(20, h - 60, w - 40, 44);
-
-      ctx.fillStyle = '#F8FAFC';
-      ctx.font = '13px sans-serif';
-      ctx.textAlign = 'center';
-      const sceneTxt = `بخش ${activeIdx + 1}: ${scene.visual || currentVideo.prompt}`;
-      ctx.fillText(sceneTxt.length > 55 ? sceneTxt.slice(0, 52) + '...' : sceneTxt, w / 2, h - 32);
-
-      if (isPlaying) {
-        animationFrameRef.current = requestAnimationFrame(render);
-      }
-    };
-
-    if (isPlaying) {
-      animationFrameRef.current = requestAnimationFrame(render);
-    } else {
-      render(performance.now());
-    }
-
-    return () => {
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-    };
+    if (!currentVideo || !currentVideo.sceneImages || currentVideo.sceneImages.length === 0) return;
+    if (!isPlaying) return;
+    const total = currentVideo.sceneImages.length;
+    const sceneDuration = 3500; // ms per scene
+    const start = Date.now();
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - start;
+      const idx = Math.floor((elapsed % (total * sceneDuration)) / sceneDuration);
+      setCurrentSceneIndex(idx);
+    }, 500);
+    return () => clearInterval(timer);
   }, [currentVideo, isPlaying]);
 
-  // Video Generation Handler
+  // Video Generation Handler — real storyboard from Gemini (via apiShim) + real images per scene
   const handleGenerateVideo = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!prompt.trim() || isGenerating) return;
@@ -197,12 +92,24 @@ export const VideoGenView: React.FC<VideoGenViewProps> = ({ videos, onAddVideo }
             { sceneNumber: 4, visual: `پایان‌بندی حماسی و ماندگار`, camera: 'Slow Motion Fade', duration: '3s' },
           ];
 
+      // Generate a REAL image for each scene via Pollinations (community model)
+      const sceneImages: string[] = [];
+      for (const sc of scenes) {
+        try {
+          const img = await generatePollinationsImage(sc.visual, aspectRatio, 'cinematic');
+          sceneImages.push(img);
+        } catch {
+          sceneImages.push('');
+        }
+      }
+
       const newVideo: GeneratedVideo = {
         id: 'vid_' + Date.now(),
         prompt,
         title: sb.title || prompt.slice(0, 30),
         synopsis: sb.synopsis || 'ویدیوی سینمایی هوش مصنوعی با جلوه‌های ویژه',
         scenes,
+        sceneImages,
         aspectRatio,
         resolution,
         videoPrompt: sb.videoPrompt || prompt,
@@ -219,14 +126,30 @@ export const VideoGenView: React.FC<VideoGenViewProps> = ({ videos, onAddVideo }
     }
   };
 
-  const handleDownloadVideo = () => {
-    if (!canvasRef.current) return;
-    const canvas = canvasRef.current;
-    const imageURI = canvas.toDataURL('image/png');
-    const link = document.createElement('a');
-    link.href = imageURI;
-    link.download = `nova-video-frame-${Date.now()}.png`;
-    link.click();
+  // Render a REAL WebM video (Ken Burns animation + crossfade) and save to device
+  const handleDownloadVideo = async () => {
+    if (!currentVideo?.sceneImages?.length || isRendering) return;
+    setIsRendering(true);
+    setRenderPct(0);
+    try {
+      const captions = currentVideo.scenes.map((s) => s.visual || '');
+      const blob = await exportScenesToWebm(currentVideo.sceneImages, captions, {
+        width: 1280,
+        height: 720,
+        secondsPerScene: 3.5,
+        onProgress: (p) => setRenderPct(p),
+      });
+      const url = URL.createObjectURL(blob);
+      await saveToDevice(url, `nova-video-${Date.now()}.webm`, { mime: 'video/webm' });
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (err) {
+      console.error('Video render failed:', err);
+      // Fallback: save the first real frame as an image
+      await saveToDevice(currentVideo.sceneImages[0], `nova-video-frame-${Date.now()}.png`, { mime: 'image/png' });
+    } finally {
+      setIsRendering(false);
+      setRenderPct(0);
+    }
   };
 
   return (
@@ -255,12 +178,25 @@ export const VideoGenView: React.FC<VideoGenViewProps> = ({ videos, onAddVideo }
         {/* Active Video Player Screen */}
         <div className="bg-slate-900 rounded-3xl p-3 border border-slate-800 shadow-2xl space-y-2.5">
           <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-black shadow-inner flex items-center justify-center">
-            <canvas
-              ref={canvasRef}
-              width={720}
-              height={405}
-              className="w-full h-full object-contain"
-            />
+            {currentVideo?.sceneImages && currentVideo.sceneImages.length > 0 ? (
+              <>
+                {currentVideo.sceneImages.map((img, i) => (
+                  <img
+                    key={i}
+                    src={img}
+                    alt={`سکانس ${i + 1}`}
+                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${i === currentSceneIndex && isPlaying ? 'opacity-100' : 'opacity-0'}`}
+                  />
+                ))}
+                {!isPlaying && (
+                  <img src={currentVideo.sceneImages[0]} alt="preview" className="absolute inset-0 w-full h-full object-cover" />
+                )}
+              </>
+            ) : (
+              <div className="text-center text-slate-500 text-xs p-4">
+                ویدیویی تولید نشده. دکمه‌ی «تولید ویدیو» را بزنید تا سناریو و فریم‌های واقعی ساخته شود.
+              </div>
+            )}
 
             {/* Floating Play/Pause Controls */}
             <div className="absolute inset-0 bg-black/20 hover:bg-black/40 transition-colors flex items-center justify-center gap-3 group">
@@ -304,10 +240,11 @@ export const VideoGenView: React.FC<VideoGenViewProps> = ({ videos, onAddVideo }
               </button>
               <button
                 onClick={handleDownloadVideo}
-                className="px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold flex items-center gap-1 shadow transition-all cursor-pointer"
+                disabled={isRendering || !currentVideo?.sceneImages?.length}
+                className="px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-xs font-semibold flex items-center gap-1 shadow transition-all cursor-pointer disabled:cursor-not-allowed"
               >
-                <Download className="w-3.5 h-3.5" />
-                <span>ذخیره ویدیو</span>
+                {isRendering ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                <span>{isRendering ? `در حال رندر ${renderPct}%` : 'ذخیره ویدیو (WebM)'}</span>
               </button>
             </div>
           </div>

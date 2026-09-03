@@ -3,7 +3,12 @@ export type AIModelType =
   | 'gemini-3.1-flash-lite'
   | 'gemini-3.1-pro-preview'
   | 'gemini-flash-latest'
-  | 'grok-3';
+  | 'grok-3'
+  | 'qwen3.8-flash'
+  | 'glm-5.3-flash'
+  | 'deepseek-v4-flash'
+  | 'hy3'
+  | 'mimo';
 
 export interface AIModelOption {
   id: AIModelType;
@@ -56,6 +61,7 @@ export interface GeneratedVideo {
   title: string;
   synopsis?: string;
   scenes: VideoScene[];
+  sceneImages?: string[];
   aspectRatio: string;
   resolution: string;
   videoUrl?: string;
@@ -63,7 +69,7 @@ export interface GeneratedVideo {
   createdAt: number;
 }
 
-export type TabType = 'chat' | 'image' | 'video' | 'tools' | 'settings';
+export type TabType = 'chat' | 'image' | 'video' | 'tools' | 'meditation' | 'settings';
 
 export type AppTheme =
   | 'pink'
@@ -74,11 +80,3 @@ export type AppTheme =
   | 'material-dark'
   | 'cyber-neon'
   | 'pure-midnight';
-
-export interface SecuritySettings {
-  pinCode: string;
-  hint: string;
-  biometricEnabled: boolean;
-  autoLockMinutes: number;
-  isLocked: boolean;
-}

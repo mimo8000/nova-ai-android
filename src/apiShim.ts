@@ -18,6 +18,22 @@ import {
   generateVideo,
   tts,
 } from './utils/gemini';
+import { resolveOpenRouterModel, orChatGenerate, orChatStream } from './utils/openrouter';
+import { consumeQuota, isAdmin } from './utils/license';
+
+// Models that are NOT Gemini -> route to OpenRouter instead.
+function isOpenRouterModel(model: string): boolean {
+  return resolveOpenRouterModel(model) !== null;
+}
+
+// If the user has no Gemini key but has OpenRouter, Gemini models can also
+// be served through OpenRouter (google/gemini-2.5-flash etc).
+function hasGeminiKey(): boolean {
+  return !!localStorage.getItem('nova_ai_gemini_key');
+}
+function geminiViaOpenRouter(model: string): boolean {
+  return !hasGeminiKey() && resolveOpenRouterModel(model) !== null;
+}
 
 const enc = new TextEncoder();
 
@@ -41,6 +57,45 @@ function emit(controller: ReadableStreamDefaultController, data: any) {
 
 async function handleChat(body: any): Promise<Response> {
   const { messages, systemPrompt, webSearch, model = 'gemini-2.5-flash', temperature, stream = false } = body;
+  if (!isAdmin() && !consumeQuota(1)) {
+    return jsonResponse({ success: false, error: 'ظرفیت کد اشتراک شما تمام شده است. برای کد جدید به @SasaX60 پیام دهید.' }, false);
+  }
+
+  // Route non-Gemini models (Qwen, GLM, DeepSeek, Hunyuan, Mimo) to OpenRouter.
+  // Also route Gemini models through OpenRouter when no Gemini key is set.
+  if (isOpenRouterModel(model) || geminiViaOpenRouter(model)) {
+    if (stream) {
+      const streamObj = new ReadableStream<Uint8Array>({
+        async start(controller) {
+          try {
+            await orChatStream({
+              messages,
+              systemPrompt,
+              model,
+              temperature,
+              onChunk: (c) => {
+                if (c.error) emit(controller, { error: c.error });
+                else if (c.done) emit(controller, { done: true, fullText: c.fullText, model: c.model });
+                else if (c.text) emit(controller, { text: c.text, model });
+              },
+            });
+          } catch (err: any) {
+            emit(controller, { error: err?.message || 'خطا در ارتباط با مدل' });
+          } finally {
+            controller.close();
+          }
+        },
+      });
+      return sseResponse(streamObj);
+    }
+    try {
+      const r = await orChatGenerate({ messages, systemPrompt, model, temperature });
+      return jsonResponse({ success: true, text: r.text, grounding: [], model: r.model });
+    } catch (err: any) {
+      return jsonResponse({ success: false, error: err?.message || 'خطا در ارتباط با مدل' }, false);
+    }
+  }
+
   if (stream) {
     const streamObj = new ReadableStream<Uint8Array>({
       async start(controller) {
@@ -90,6 +145,9 @@ async function handleEnhance(body: any): Promise<Response> {
 }
 
 async function handleImage(body: any): Promise<Response> {
+  if (!isAdmin() && !consumeQuota(2)) {
+    return jsonResponse({ success: false, error: 'ظرفیت کد اشتراک شما تمام شده است. برای کد جدید به @SasaX60 پیام دهید.' }, false);
+  }
   try {
     const r = await generateImage(body.prompt, body.aspectRatio, body.style, body.seedImage);
     return jsonResponse({
@@ -105,6 +163,9 @@ async function handleImage(body: any): Promise<Response> {
 }
 
 async function handleVideo(body: any): Promise<Response> {
+  if (!isAdmin() && !consumeQuota(5)) {
+    return jsonResponse({ success: false, error: 'ظرفیت کد اشتراک شما تمام شده است. برای کد جدید به @SasaX60 پیام دهید.' }, false);
+  }
   try {
     const r = await generateVideo(body.prompt, body.aspectRatio, body.resolution, body.startingImage, body.style);
     return jsonResponse({

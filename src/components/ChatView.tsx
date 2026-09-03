@@ -31,6 +31,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
 import { ChatMessage, AIModelOption, AIModelType } from '../types';
 import { speakText, stopSpeaking } from '../utils/mediaGenerator';
+import { copyText } from '../utils/saveFile';
 
 export const AI_MODELS: AIModelOption[] = [
   {
@@ -72,6 +73,46 @@ export const AI_MODELS: AIModelOption[] = [
     desc: 'مخصوص حل مسائل بسیار پیچیده، تحلیل عمیق، کدنویسی پیشرفته و محاسبات مهندسی',
     speed: 'سرعت: استاندارد و تحلیلی',
     icon: '🧠',
+  },
+  {
+    id: 'qwen3.8-flash',
+    name: 'Qwen 3.8 Flash',
+    badge: 'چندزبانه قدرتمند 🐉',
+    desc: 'مدل شیائومی/علی‌بابا با قدرت زبانی و کدنویسی عالی و پشتیبانی فوق‌العاده از فارسی',
+    speed: 'سرعت: بسیار سریع',
+    icon: '🐉',
+  },
+  {
+    id: 'glm-5.3-flash',
+    name: 'GLM 5.3 Flash',
+    badge: 'استدلال زنجیره‌ای 🎯',
+    desc: 'مدل Zhipu با تفکر گام‌به‌گام، مناسب ریاضی، منطق و تحلیل دقیق',
+    speed: 'سرعت: سریع (با reasoning)',
+    icon: '🎯',
+  },
+  {
+    id: 'deepseek-v4-flash',
+    name: 'DeepSeek V4 Flash',
+    badge: 'متخصص کدنویسی 💎',
+    desc: 'قوی‌ترین مدل رایگان در کدنویسی، رفع باگ و استدلال فنی عمیق',
+    speed: 'سرعت: سریع',
+    icon: '💎',
+  },
+  {
+    id: 'hy3',
+    name: 'Hunyuan 3 (Tencent)',
+    badge: 'همه‌کاره چینی 🀄',
+    desc: 'مدل تنسنت برای مکالمه طبیعی، ترجمه و خلاقیت متنی',
+    speed: 'سرعت: سریع',
+    icon: '🀄',
+  },
+  {
+    id: 'mimo',
+    name: 'Xiaomi MiMo 2.5',
+    badge: 'جدید و سریع 🐱',
+    desc: 'مدل شیائومی با تعادل عالی سرعت و کیفیت برای کارهای روزمره',
+    speed: 'سرعت: بسیار سریع',
+    icon: '🐱',
   },
 ];
 
@@ -269,13 +310,13 @@ export const ChatView: React.FC<ChatViewProps> = ({
   };
 
   const copyToClipboard = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
+    copyText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
   const handleCopyCode = (codeText: string, key: string) => {
-    navigator.clipboard.writeText(codeText);
+    copyText(codeText);
     setCopiedCodeIdx(key);
     setTimeout(() => setCopiedCodeIdx(null), 2000);
   };

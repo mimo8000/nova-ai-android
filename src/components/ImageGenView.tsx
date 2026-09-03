@@ -17,6 +17,9 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { GeneratedImage } from '../types';
 import { generateProceduralArt } from '../utils/mediaGenerator';
+import { generatePollinationsImage } from '../utils/pollinations';
+import { saveToDevice, copyText } from '../utils/saveFile';
+import { consumeQuota, isAdmin } from '../utils/license';
 
 interface ImageGenViewProps {
   images: GeneratedImage[];
@@ -74,30 +77,19 @@ export const ImageGenView: React.FC<ImageGenViewProps> = ({ images, onAddImage }
     if (e) e.preventDefault();
     if (!prompt.trim() || isGenerating) return;
 
+    if (!isAdmin() && !consumeQuota(2)) {
+      alert('ظرفیت کد اشتراک شما تمام شده است. برای کد جدید به @SasaX60 پیام دهید.');
+      return;
+    }
     setIsGenerating(true);
     try {
-      const response = await fetch('/api/generate-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt,
-          style: selectedStyle,
-          aspectRatio,
-        }),
-      });
-
-      const data = await response.json();
-      let finalImageUrl = data.imageUrl;
-
-      // If direct model needs fallback, synthesize rich 4K procedural art canvas
-      if (!finalImageUrl) {
-        finalImageUrl = await generateProceduralArt(prompt, selectedStyle, aspectRatio, 1024);
-      }
+      // REAL image generation via Pollinations (no key)
+      const finalImageUrl = await generatePollinationsImage(prompt, aspectRatio, selectedStyle);
 
       const newImage: GeneratedImage = {
         id: 'img_' + Date.now(),
         prompt,
-        enhancedPrompt: data.enhancedPrompt || prompt,
+        enhancedPrompt: prompt,
         style: selectedStyle,
         aspectRatio,
         imageUrl: finalImageUrl,
@@ -108,7 +100,7 @@ export const ImageGenView: React.FC<ImageGenViewProps> = ({ images, onAddImage }
       setPreviewImage(newImage);
     } catch (err) {
       console.error('Generation error:', err);
-      // Fallback generator
+      // Fallback to procedural art only if network fails
       const fallbackUrl = await generateProceduralArt(prompt, selectedStyle, aspectRatio, 1024);
       const fallbackImage: GeneratedImage = {
         id: 'img_' + Date.now(),
@@ -125,15 +117,12 @@ export const ImageGenView: React.FC<ImageGenViewProps> = ({ images, onAddImage }
     }
   };
 
-  const handleDownload = (img: GeneratedImage) => {
-    const link = document.createElement('a');
-    link.href = img.imageUrl;
-    link.download = `nova-ai-${img.style}-${Date.now()}.png`;
-    link.click();
+  const handleDownload = async (img: GeneratedImage) => {
+    await saveToDevice(img.imageUrl, `nova-ai-${img.style}-${Date.now()}.png`, { mime: 'image/png' });
   };
 
   const handleCopyPrompt = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
+    copyText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };

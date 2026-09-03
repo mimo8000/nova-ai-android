@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { copyText } from '../utils/saveFile';
 import {
   Wand2,
   Code,
@@ -115,7 +116,7 @@ export const ToolsView: React.FC<ToolsViewProps> = ({
   };
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(result);
+    copyText(result);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

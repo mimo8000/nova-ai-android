@@ -7,6 +7,7 @@ import {
   Settings,
   Shield,
   Key,
+  Waves,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AndroidFrame } from './components/AndroidFrame';
@@ -15,39 +16,22 @@ import { ChatView } from './components/ChatView';
 import { ImageGenView } from './components/ImageGenView';
 import { VideoGenView } from './components/VideoGenView';
 import { ToolsView } from './components/ToolsView';
+import { MeditationView } from './components/MeditationView';
 import { SettingsModal } from './components/SettingsModal';
+import { ApiKeyQuickModal } from './components/ApiKeyQuickModal';
+import { getLicense, License } from './utils/license';
 import {
   ChatMessage,
   GeneratedImage,
   GeneratedVideo,
   TabType,
   AppTheme,
-  SecuritySettings,
   AIModelType,
 } from './types';
 
-const DEFAULT_SECURITY: SecuritySettings = {
-  pinCode: '2025',
-  hint: 'رمز ادمین: reza43 | رمز پیش‌فرض: 2025',
-  biometricEnabled: true,
-  autoLockMinutes: 10,
-  isLocked: true,
-};
-
 export default function App() {
-  const [security, setSecurity] = useState<SecuritySettings>(() => {
-    const saved = localStorage.getItem('nova_ai_security');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        return { ...parsed, isLocked: true };
-      } catch {
-        return DEFAULT_SECURITY;
-      }
-    }
-    return DEFAULT_SECURITY;
-  });
-
+  const [license, setLicense] = useState<License | null>(() => getLicense());
+  const [showKeyModal, setShowKeyModal] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('chat');
   const [theme, setTheme] = useState<AppTheme>(() => {
     const saved = localStorage.getItem('nova_ai_theme');
@@ -74,11 +58,6 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('nova_ai_theme', theme);
   }, [theme]);
-
-  // Save security changes
-  useEffect(() => {
-    localStorage.setItem('nova_ai_security', JSON.stringify(security));
-  }, [security]);
 
   // Save chat messages
   useEffect(() => {
@@ -296,11 +275,12 @@ export default function App() {
   };
 
   const handleLockNow = () => {
-    setSecurity((prev) => ({ ...prev, isLocked: true }));
+    setLicense(null);
+    setActiveTab('chat');
   };
 
-  const handleUnlock = () => {
-    setSecurity((prev) => ({ ...prev, isLocked: false }));
+  const handleUnlock = (lic: License) => {
+    setLicense(lic);
   };
 
   const handleClearAllData = () => {
@@ -342,10 +322,10 @@ export default function App() {
     : 'text-neutral-100';
 
   return (
-    <AndroidFrame isLocked={security.isLocked} activeTab={activeTab} theme={theme}>
+    <AndroidFrame isLocked={!license} activeTab={activeTab} theme={theme}>
       <AnimatePresence mode="wait">
-        {security.isLocked ? (
-          /* Lock Screen with Shared Written Key */
+        {!license ? (
+          /* Lock Screen — subscription code only */
           <motion.div
             key="lock-screen-wrapper"
             initial={{ opacity: 0 }}
@@ -353,11 +333,7 @@ export default function App() {
             exit={{ opacity: 0, scale: 0.98 }}
             className="flex-1 flex flex-col h-full"
           >
-            <LockScreen
-              savedPin={security.pinCode}
-              savedHint={security.hint}
-              onUnlock={handleUnlock}
-            />
+            <LockScreen onUnlock={handleUnlock} />
           </motion.div>
         ) : (
           /* Unlocked Main AI Application */
@@ -366,7 +342,7 @@ export default function App() {
             initial={{ opacity: 0, scale: 1.02 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
-            className="flex-1 flex flex-col h-full overflow-hidden"
+            className="flex-1 flex flex-col h-full overflow-hidden relative"
           >
             {/* View Port Content */}
             <div className="flex-1 flex flex-col overflow-hidden relative">
@@ -402,10 +378,10 @@ export default function App() {
                 />
               )}
 
+              {activeTab === 'meditation' && <MeditationView />}
+
               {activeTab === 'settings' && (
                 <SettingsModal
-                  security={security}
-                  onUpdateSecurity={(newSec) => setSecurity(newSec)}
                   onLockNow={handleLockNow}
                   theme={theme}
                   onChangeTheme={(t) => setTheme(t)}
@@ -423,8 +399,9 @@ export default function App() {
                 { id: 'chat', label: 'چت AI', icon: MessageSquare, badge: '' },
                 { id: 'image', label: 'عکس 4K', icon: ImageIcon, badge: '' },
                 { id: 'video', label: 'ویدیو AI', icon: Film, badge: '' },
+                { id: 'meditation', label: 'مدیتیشن', icon: Waves, badge: '' },
                 { id: 'tools', label: 'ابزارها', icon: Sparkles, badge: '' },
-                { id: 'settings', label: 'امنیت', icon: Key, badge: '' },
+                { id: 'settings', label: 'تنظیمات', icon: Key, badge: '' },
               ].map((tab) => {
                 const IconComponent = tab.icon;
                 const isActive = activeTab === tab.id;
@@ -458,6 +435,17 @@ export default function App() {
                 );
               })}
             </div>
+            {/* Floating quick API-key button */}
+            <button
+              id="quick-key-fab"
+              onClick={() => setShowKeyModal(true)}
+              className="absolute bottom-16 left-3 z-40 w-11 h-11 rounded-full bg-gradient-to-tr from-amber-500 to-orange-600 text-white shadow-xl shadow-amber-500/30 flex items-center justify-center active:scale-95 transition-transform cursor-pointer"
+              title="تغییر سریع کلید API"
+            >
+              <Key className="w-5 h-5" />
+            </button>
+
+            <ApiKeyQuickModal open={showKeyModal} onClose={() => setShowKeyModal(false)} />
           </motion.div>
         )}
       </AnimatePresence>
