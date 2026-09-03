@@ -24,6 +24,8 @@ jobs:
         run: npm install
 
       - name: Build web app
+        env:
+          VITE_OR_KEY: ${{ secrets.VITE_OR_KEY }}
         run: npm run build
 
       - name: Add Capacitor Android platform (if missing)

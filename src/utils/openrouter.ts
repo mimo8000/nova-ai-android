@@ -9,7 +9,7 @@ const BASE = 'https://openrouter.ai/api/v1/chat/completions';
 // Built-in OpenRouter key (used when the user has not set their own in Settings).
 // WARNING: this ships inside the APK and is extractable by a determined user.
 // Replace it with your own key, or remove it and let users enter their own.
-const DEFAULT_OR_KEY = 'sk-or-v1…b72b';
+const DEFAULT_OR_KEY = (import.meta.env?.VITE_OR_KEY || '') as string;
 
 // Map our UI model ids to real OpenRouter model ids
 export function resolveOpenRouterModel(model: string): string | null {
@@ -40,12 +40,12 @@ export function resolveOpenRouterModel(model: string): string | null {
 }
 
 function sanitizeKey(k: string): string {
-  // strip zero-width / BOM / RTL chars, convert Persian digits, trim
+  // API keys are pure ASCII: convert Persian/Arabic digits, then drop every
+  // remaining non-ASCII / whitespace char so fetch headers can never break.
   return k
-    .replace(/[\u200B-\u200D\uFEFF\u061C\u2066-\u2069]/g, '')
     .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
-    .replace(/\s+/g, '')
-    .trim();
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[^\x21-\x7E]/g, '');
 }
 
 function getKey(): string {

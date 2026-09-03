@@ -187,9 +187,17 @@ export function consumeQuota(cost: number): boolean {
 const PIN_KEY = '***';
 export const DEFAULT_ADMIN_PIN = '1234';
 
+function normalizePin(pin: string): string {
+  // Persian/Arabic digits -> Latin, strip spaces & invisible chars
+  return pin
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[\u200B-\u200D\uFEFF\u061C\u2066-\u2069\s]/g, '');
+}
+
 async function hashPin(pin: string): Promise<string> {
   const enc = new TextEncoder();
-  const buf = await crypto.subtle.digest('SHA-256', enc.encode('nova-pin:' + pin));
+  const buf = await crypto.subtle.digest('SHA-256', enc.encode('nova-pin:' + normalizePin(pin)));
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
@@ -203,9 +211,10 @@ export async function setAdminPin(pin: string): Promise<void> {
 }
 
 export async function verifyAdminPin(pin: string): Promise<boolean> {
+  const norm = normalizePin(pin);
   const stored = localStorage.getItem(PIN_KEY);
-  if (!stored) return pin === DEFAULT_ADMIN_PIN;
-  return (await hashPin(pin)) === stored;
+  if (!stored) return norm === DEFAULT_ADMIN_PIN;
+  return (await hashPin(norm)) === stored;
 }
 
 export function clearAdminPin(): void {

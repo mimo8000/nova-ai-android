@@ -103,10 +103,9 @@ function buildSystemInstruction(model: string, systemPrompt?: string): string {
 
 function sanitizeKey(k: string): string {
   return k
-    .replace(/[\u200B-\u200D\uFEFF\u061C\u2066-\u2069]/g, '')
     .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
-    .replace(/\s+/g, '')
-    .trim();
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[^\x21-\x7E]/g, '');
 }
 function getApiKey(): string {
   // alias used across file
